@@ -16,7 +16,7 @@ Ele detecta as telas do jogo e faz os cliques sozinho. Você só precisa abrir o
 3. Abra o arquivo:
 
 ```
-Abrir Evento 2026 Automator.bat
+Abrir Evento 2026 Automator.bat COMO ADMIN SEMPRE
 ```
 
 Pronto, o app abre direto.
@@ -32,7 +32,7 @@ Pronto, o app abre direto.
 2. Abra o arquivo:
 
 ```
-Abrir Evento 2026 Automator.bat
+Abrir Evento 2026 Automator.bat COMO ADMIN SEMPRE
 ```
 
 Na primeira vez ele cria o ambiente e instala tudo sozinho.  
