@@ -92,7 +92,7 @@ O bot está configurado para o Andar 2 do Modo Desafio. Para adaptar, edite o `a
 **Que time devo usarrrrr?**  
 ![alt text](image.png)
 
-Lorina - ![alt text](image-1.png)
+Lorina - ![alt text](image-6.png)
 Freira do mal - ![alt text](image-2.png)
 Politis - importantissimo o artefato para maior velocidade - ![alt text](image-3.png)
 Mercedes da um auto build ai, mas tenha o EE dela - ![alt text](image-4.png)
