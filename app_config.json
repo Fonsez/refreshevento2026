@@ -1,0 +1,195 @@
+{
+  "app": {
+    "title": "Evento 2026 Automator",
+    "assets_dir": "assets/img",
+    "history_dir": "history",
+    "history_prefix": "abismo_desafio_2"
+  },
+  "theme": {
+    "background": "#171717",
+    "foreground": "#dddddd",
+    "accent": "#FFBF00",
+    "input_background": "#333333"
+  },
+  "ui": {
+    "icon": "assets/gui_icon.ico",
+    "window": {
+      "geometry": "920x760",
+      "min_size": [820, 700]
+    }
+  },
+  "window": {
+    "input_mode": "sendinput_cursor",
+    "recognized_titles": [
+      "Epic Seven",
+      "BlueStacks App Player",
+      "LDPlayer",
+      "MuMu Player 12",
+      "Google Play Games on PC Emulator"
+    ],
+    "title_pattern": "^(Epic Seven|에픽세븐) - \\w+$",
+    "geometry": {
+      "width": 1365,
+      "height": 768
+    }
+  },
+  "templates": [
+    {
+      "name": "andar_2_selecionado",
+      "path": "andar_2_selecionado.png",
+      "threshold": 0.8,
+      "min_scale": 0.75,
+      "max_scale": 0.95
+    },
+    {
+      "name": "andar_2_iniciar",
+      "path": "andar_2_iniciar.jpg",
+      "threshold": 0.8,
+      "min_scale": 0.75,
+      "max_scale": 0.95
+    },
+    {
+      "name": "fase_clear",
+      "path": "fase_clear.jpg",
+      "threshold": 0.88,
+      "min_scale": 0.65,
+      "max_scale": 0.9
+    },
+    {
+      "name": "tela_resultado",
+      "path": "tela_resultado.jpg",
+      "threshold": 0.72,
+      "min_scale": 0.7,
+      "max_scale": 0.95
+    },
+    {
+      "name": "andar_20_selecionado",
+      "path": "andar20_selecionado.jpg",
+      "threshold": 0.8,
+      "min_scale": 0.75,
+      "max_scale": 0.95
+    }
+  ],
+  "flow": {
+    "timing": {
+      "mouse_sleep": 0.25,
+      "screenshot_sleep": 0.4,
+      "poll_interval": 1.0
+    },
+    "startup_actions": [],
+    "loop_steps": [
+      {
+        "name": "aguardar_andar_2",
+        "wait_for": [
+          "andar_2_selecionado"
+        ],
+        "timeout_seconds": 20
+      },
+      {
+        "name": "clicar_de_novo",
+        "actions": [
+          {
+            "type": "wait",
+            "seconds": 0.5
+          },
+          {
+            "type": "click",
+            "x_ratio": 0.855,
+            "y_ratio": 0.901,
+            "delay_after": 0.8
+          }
+        ]
+      },
+      {
+        "name": "aguardar_tela_iniciar",
+        "wait_for": [
+          "andar_2_iniciar"
+        ],
+        "timeout_seconds": 15,
+        "actions": [
+          {
+            "type": "click",
+            "x_ratio": 0.862,
+            "y_ratio": 0.922,
+            "delay_after": 0.9
+          }
+        ]
+      },
+      {
+        "name": "confirmar_repeticao",
+        "actions": [
+          {
+            "type": "wait",
+            "seconds": 0.9
+          },
+          {
+            "type": "click",
+            "x_ratio": 0.577,
+            "y_ratio": 0.663,
+            "delay_after": 1.0
+          }
+        ]
+      },
+      {
+        "name": "esperar_clear",
+        "wait_for": [
+          "fase_clear"
+        ],
+        "timeout_seconds": null,
+        "poll_interval": 0.8,
+        "confirm_matches": 2,
+        "actions": [
+          {
+            "type": "click",
+            "x_ratio": 0.500,
+            "y_ratio": 0.520,
+            "delay_after": 2.2
+          }
+        ]
+      },
+      {
+        "name": "aguardar_tela_resultado",
+        "wait_for": [
+          "tela_resultado"
+        ],
+        "timeout_seconds": null,
+        "confirm_matches": 2,
+        "actions": [
+          {
+            "type": "click",
+            "x_ratio": 0.102,
+            "y_ratio": 0.931,
+            "delay_after": 1.5
+          }
+        ]
+      },
+      {
+        "name": "resetar_lista_para_andar_2",
+        "wait_for": [
+          "andar_20_selecionado"
+        ],
+        "timeout_seconds": 30,
+        "actions": [
+          {
+            "type": "drag",
+            "start_x_ratio": 0.662,
+            "start_y_ratio": 0.560,
+            "end_x_ratio": 0.662,
+            "end_y_ratio": 0.885,
+            "hold_before": 0.12,
+            "hold_after_move": 0.12,
+            "duration": 0.35,
+            "delay_after": 0.45,
+            "repeat": 18
+          },
+          {
+            "type": "click",
+            "x_ratio": 0.650,
+            "y_ratio": 0.595,
+            "delay_after": 1.5
+          }
+        ]
+      }
+    ]
+  }
+}
