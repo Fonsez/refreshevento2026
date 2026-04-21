@@ -3,7 +3,7 @@
 Bot que repete automaticamente o loop do **Abismo — Modo Desafio — Andar 2** Epic de cada dia.  
 Ele detecta as telas do jogo e faz os cliques sozinho. Você só precisa abrir o emulador e iniciar.
 
-![alt text](image-5.png)
+![alt text](image-7.png)
 
 ---
 
