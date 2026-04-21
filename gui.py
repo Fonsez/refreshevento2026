@@ -1,45 +1,37 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox
+import customtkinter as ctk
 
-from PIL import Image, ImageTk
+from PIL import Image
 
 from automation import AutomationEngine, discover_window_titles
 from config_loader import resolve_resource_path
 
+# Configure base theme
+ctk.set_appearance_mode("Dark")  # Modes: "System" (standard), "Dark", "Light"
+ctk.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
 
 class AutomationApp:
     def __init__(self, config: dict) -> None:
         self.config = config
-        theme = config.get("theme", {})
-        self.bg = theme.get("background", "#171717")
-        self.fg = theme.get("foreground", "#dddddd")
-        self.accent = theme.get("accent", "#FFBF00")
-        self.input_bg = theme.get("input_background", "#333333")
-        self.card_bg = "#202020"
-        self.muted_fg = "#a7a7a7"
-        self.button_bg = "#2b6ef2"
-        self.button_fg = "#ffffff"
-        self.button_disabled_bg = "#3b3b3b"
-        self.button_disabled_fg = "#9b9b9b"
-
-        self.root = tk.Tk()
+        
+        self.root = ctk.CTk()
         self.root.title(config["app"].get("title", "Evento 2026 Automator"))
-        window = config["ui"].get("window", {})
-        self.root.geometry(window.get("geometry", "500x860"))
-        self.root.minsize(*window.get("min_size", [500, 860]))
-        self.root.config(bg=self.bg)
-        self.root.option_add("*Font", "Helvetica 10")
+        window_cfg = config["ui"].get("window", {})
+        self.root.geometry(window_cfg.get("geometry", "560x900"))
+        self.root.minsize(*window_cfg.get("min_size", [500, 860]))
 
         icon_path = resolve_resource_path(config, config["ui"].get("icon"))
         if icon_path and icon_path.exists():
-            self.root.iconbitmap(str(icon_path))
+            try:
+                self.root.iconbitmap(str(icon_path))
+            except Exception:
+                pass
 
         self.title_name = ""
-        self.hint_window = None
         self.loaded_images = []
-        self.template_status_labels: dict[str, tk.Label] = {}
         self.is_running = False
 
         self.mouse_speed_var = tk.StringVar(value=str(config["flow"]["timing"].get("mouse_sleep", 0.3)))
@@ -54,248 +46,153 @@ class AutomationApp:
         self.root.mainloop()
 
     def _build_ui(self) -> None:
-        container = tk.Frame(self.root, bg=self.bg, padx=18, pady=16)
-        container.pack(fill="both", expand=True)
-        container.grid_columnconfigure(0, weight=3)
-        container.grid_columnconfigure(1, weight=2)
-        container.grid_rowconfigure(1, weight=1)
+        self.container = ctk.CTkScrollableFrame(self.root, fg_color="transparent")
+        self.container.pack(fill="both", expand=True, padx=20, pady=20)
 
-        header = tk.Frame(container, bg=self.bg)
-        header.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 14))
-        header.grid_columnconfigure(0, weight=1)
+        # Header
+        header = ctk.CTkFrame(self.container, fg_color="transparent")
+        header.pack(fill="x", pady=(0, 20))
+        
+        title_label = ctk.CTkLabel(header, text=self.config["app"].get("title", "Evento 2026 Automator"), font=ctk.CTkFont(size=28, weight="bold"))
+        title_label.pack(anchor="w")
+        
+        subtitle_label = ctk.CTkLabel(header, text="Loop automático para Abismo Modo Desafio - Andar 2", font=ctk.CTkFont(size=13), text_color="gray")
+        subtitle_label.pack(anchor="w", pady=(0, 5))
+        
+        pill = ctk.CTkLabel(header, text="ESC para parar", fg_color="#F2A900", text_color="#1a1a1a", font=ctk.CTkFont(size=12, weight="bold"), corner_radius=6, padx=10, pady=4)
+        pill.pack(anchor="w")
 
-        tk.Label(
-            header,
-            text=self.config["app"].get("title", "Evento 2026 Automator"),
-            font=("Helvetica", 24, "bold"),
-            bg=self.bg,
-            fg=self.fg,
-        ).grid(row=0, column=0, sticky="w")
-        tk.Label(
-            header,
-            text="Loop automatico para Abismo Modo Desafio - Andar 2",
-            font=("Helvetica", 11),
-            bg=self.bg,
-            fg=self.muted_fg,
-        ).grid(row=1, column=0, sticky="w", pady=(4, 0))
+        # Layout grids
+        content_frame = ctk.CTkFrame(self.container, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True)
+        content_frame.grid_columnconfigure(0, weight=1)
+        content_frame.grid_columnconfigure(1, weight=1)
 
-        pill = tk.Label(
-            header,
-            text="ESC para parar",
-            font=("Helvetica", 10, "bold"),
-            bg="#2a2514",
-            fg=self.accent,
-            padx=12,
-            pady=6,
-        )
-        pill.grid(row=0, column=1, rowspan=2, sticky="e")
+        left_column = ctk.CTkFrame(content_frame, fg_color="transparent")
+        left_column.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
-        left_column = tk.Frame(container, bg=self.bg)
-        left_column.grid(row=1, column=0, sticky="nsew", padx=(0, 10))
-        left_column.grid_columnconfigure(0, weight=1)
+        right_column = ctk.CTkFrame(content_frame, fg_color="transparent")
+        right_column.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
 
-        right_column = tk.Frame(container, bg=self.bg)
-        right_column.grid(row=1, column=1, sticky="nsew")
-        right_column.grid_columnconfigure(0, weight=1)
-
-        target_card = self._make_card(left_column)
-        target_card.grid(row=0, column=0, sticky="ew", pady=(0, 10))
-        self._section_title(target_card, "Janela")
-        tk.Label(
-            target_card,
-            text="Escolha a janela do jogo aberta no PC.",
-            font=("Helvetica", 10),
-            bg=self.card_bg,
-            fg=self.muted_fg,
-        ).pack(anchor="w")
-
+        # Target Card
+        target_card = self._make_card(left_column, "Janela Alvo")
+        ctk.CTkLabel(target_card, text="Escolha a janela do jogo aberta no PC.", text_color="gray").pack(anchor="w", pady=(0, 10))
+        
         titles = discover_window_titles(self.config)
-        self.title_combo = ttk.Combobox(target_card, values=titles, state="normal")
-        self.title_combo.pack(fill="x", pady=(10, 0))
-        self.title_combo.bind("<<ComboboxSelected>>", self._on_title_change)
-        self.title_combo.bind("<KeyRelease>", self._on_title_change)
+        self.title_combo = ctk.CTkOptionMenu(target_card, values=titles if titles else ["Nenhuma janela encontrada"], command=self._on_title_change_menu)
+        self.title_combo.pack(fill="x", pady=(0, 10))
         if titles:
             self.title_name = titles[0]
             self.title_combo.set(titles[0])
 
-        settings_card = self._make_card(left_column)
-        settings_card.grid(row=1, column=0, sticky="ew", pady=(0, 10))
-        self._section_title(settings_card, "Configuracoes")
-        self._pack_checkbox("Mover janela para o canto superior esquerdo", self.move_window_var, settings_card)
-        self._pack_select(
-            "Modo de input",
-            self.input_mode_var,
-            ["sendinput_cursor", "pyautogui", "win32_cursor", "window_message"],
-            settings_card,
-        )
-        self._pack_entry("Velocidade do mouse", self.mouse_speed_var, settings_card, suffix="s")
-        self._pack_entry("Velocidade da captura", self.screenshot_speed_var, settings_card, suffix="s")
-        self._pack_entry("Limite de loops", self.loop_limit_var, settings_card)
+        # Settings Card
+        settings_card = self._make_card(left_column, "Configurações")
+        
+        chk = ctk.CTkCheckBox(settings_card, text="Mover janela p/ canto superior", variable=self.move_window_var)
+        chk.pack(anchor="w", pady=5)
+        
+        self._pack_select("Modo de input", self.input_mode_var, ["sendinput_cursor", "pyautogui", "win32_cursor", "window_message"], settings_card)
+        self._pack_entry("Velocidade do mouse (s)", self.mouse_speed_var, settings_card)
+        self._pack_entry("Velocidade da captura (s)", self.screenshot_speed_var, settings_card)
+        self._pack_entry("Limite de loops (vazio=inf)", self.loop_limit_var, settings_card)
 
-        status_card = self._make_card(left_column)
-        status_card.grid(row=2, column=0, sticky="ew")
-        self._section_title(status_card, "Status")
-        self.status_label = tk.Label(
-            status_card,
-            text="Parado",
-            font=("Helvetica", 12, "bold"),
-            bg=self.card_bg,
-            fg=self.accent,
-        )
-        self.status_label.pack(anchor="w")
-        self.last_match_label = tk.Label(
-            status_card,
-            text="Ultimo template: -",
-            font=("Helvetica", 10),
-            bg=self.card_bg,
-            fg=self.fg,
-            wraplength=360,
-            justify="left",
-        )
-        self.last_match_label.pack(anchor="w", pady=(10, 4))
-        self.last_action_label = tk.Label(
-            status_card,
-            text="Ultima acao: -",
-            font=("Helvetica", 10),
-            bg=self.card_bg,
-            fg=self.fg,
-            wraplength=360,
-            justify="left",
-        )
+        # Status Card
+        status_card = self._make_card(left_column, "Status")
+        self.status_label = ctk.CTkLabel(status_card, text="Parado", font=ctk.CTkFont(size=18, weight="bold"), text_color="#F2A900")
+        self.status_label.pack(anchor="w", pady=(0, 5))
+        self.last_match_label = ctk.CTkLabel(status_card, text="Último template: -")
+        self.last_match_label.pack(anchor="w")
+        self.last_action_label = ctk.CTkLabel(status_card, text="Última ação: -")
         self.last_action_label.pack(anchor="w")
 
-        assets_card = self._make_card(right_column)
-        assets_card.grid(row=0, column=0, sticky="nsew")
-        self._section_title(assets_card, "Templates")
-        tk.Label(
-            assets_card,
-            text="Recortes usados para detectar cada tela do loop.",
-            font=("Helvetica", 10),
-            bg=self.card_bg,
-            fg=self.muted_fg,
-        ).pack(anchor="w", pady=(0, 10))
+        # Assets Card
+        assets_card = self._make_card(right_column, "Templates")
+        ctk.CTkLabel(assets_card, text="Recortes usados para detecção", text_color="gray").pack(anchor="w", pady=(0, 10))
 
-        assets_list = tk.Frame(assets_card, bg=self.card_bg)
-        assets_list.pack(fill="both", expand=True)
         assets_dir = resolve_resource_path(self.config, self.config["app"].get("assets_dir", "assets"))
         for item in self.config.get("templates", []):
-            self._pack_template(item, assets_dir, assets_list)
+            self._pack_template(item, assets_dir, assets_card)
 
-        footer = tk.Frame(container, bg=self.bg)
-        footer.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(14, 0))
-        footer.grid_columnconfigure(0, weight=1)
-        footer.grid_columnconfigure(1, weight=1)
-
-        tk.Label(
-            footer,
-            text="Quando o loop estiver rodando, nao mexa no jogo nem no mouse.",
-            font=("Helvetica", 10),
-            bg=self.bg,
-            fg=self.muted_fg,
-        ).grid(row=0, column=0, sticky="w", padx=(2, 16))
-
-        self.start_button = tk.Button(
-            footer,
-            text="Iniciar Automacao",
-            font=("Helvetica", 13, "bold"),
-            command=self.start_automation,
-            state=tk.NORMAL if self.title_name else tk.DISABLED,
-            bg=self.button_bg,
-            fg=self.button_fg,
-            activebackground="#1f56bf",
-            activeforeground=self.button_fg,
-            relief="flat",
-            bd=0,
-            padx=18,
-            pady=12,
-            cursor="hand2",
-        )
-        self.start_button.grid(row=0, column=1, sticky="e")
+        # Footer
+        footer = ctk.CTkFrame(self.container, fg_color="transparent")
+        footer.pack(fill="x", pady=(20, 0))
+        ctk.CTkLabel(footer, text="Quando o loop estiver rodando, não mexa no jogo.", text_color="gray").pack(side="left")
+        
+        self.start_button = ctk.CTkButton(footer, text="Iniciar Automação", font=ctk.CTkFont(size=15, weight="bold"), height=45, fg_color="#2b6ef2", hover_color="#1f56bf", command=self.start_automation)
+        self.start_button.pack(side="right")
         self._sync_start_button_state()
 
-    def _make_card(self, parent: tk.Widget) -> tk.Frame:
-        return tk.Frame(parent, bg=self.card_bg, padx=14, pady=14, highlightthickness=1, highlightbackground="#2f2f2f")
+        # Keyboard bind for ESC
+        self.root.bind("<Escape>", self._on_escape)
 
-    def _section_title(self, parent: tk.Widget, text: str) -> None:
-        tk.Label(
-            parent,
-            text=text,
-            font=("Helvetica", 15, "bold"),
-            bg=self.card_bg,
-            fg=self.fg,
-        ).pack(anchor="w", pady=(0, 10))
+    def _on_escape(self, event=None):
+        if self.is_running and hasattr(self, 'engine'):
+            self.engine.stop()
 
-    def _pack_checkbox(self, text: str, variable: tk.Variable, parent: tk.Widget) -> None:
-        frame = tk.Frame(parent, bg=self.card_bg)
-        tk.Label(frame, text=text, font=("Helvetica", 11), bg=self.card_bg, fg=self.fg).pack(side=tk.LEFT)
-        tk.Checkbutton(
-            frame,
-            variable=variable,
-            bg=self.card_bg,
-            activebackground=self.card_bg,
-            selectcolor=self.card_bg,
-        ).pack(side=tk.RIGHT)
-        frame.pack(pady=4)
+    def _make_card(self, parent, title: str) -> ctk.CTkFrame:
+        card = ctk.CTkFrame(parent, corner_radius=10)
+        card.pack(fill="x", pady=(0, 20))
+        # padding inside
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="both", expand=True, padx=15, pady=15)
+        ctk.CTkLabel(inner, text=title, font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", pady=(0, 10))
+        return inner
 
-    def _pack_entry(self, label_text: str, variable: tk.StringVar, parent: tk.Widget, suffix: str = "") -> None:
-        frame = tk.Frame(parent, bg=self.card_bg)
-        tk.Label(frame, text=label_text, font=("Helvetica", 11), bg=self.card_bg, fg=self.fg).pack(side=tk.LEFT)
-        right = tk.Frame(frame, bg=self.card_bg)
-        entry = tk.Entry(
-            right,
-            textvariable=variable,
-            bg=self.input_bg,
-            fg=self.fg,
-            relief="flat",
-            insertbackground=self.fg,
-            width=12,
-        )
-        entry.pack(side=tk.LEFT)
-        if suffix:
-            tk.Label(right, text=suffix, font=("Helvetica", 10), bg=self.card_bg, fg=self.muted_fg).pack(side=tk.LEFT, padx=(6, 0))
-        right.pack(side=tk.RIGHT)
-        frame.pack(fill="x", pady=4)
+    def _pack_entry(self, label_text: str, variable: tk.StringVar, parent) -> None:
+        frame = ctk.CTkFrame(parent, fg_color="transparent")
+        ctk.CTkLabel(frame, text=label_text).pack(side="left")
+        entry = ctk.CTkEntry(frame, textvariable=variable, width=80, corner_radius=6)
+        entry.pack(side="right")
+        frame.pack(fill="x", pady=5)
 
-    def _pack_select(self, label_text: str, variable: tk.StringVar, options: list[str], parent: tk.Widget) -> None:
-        frame = tk.Frame(parent, bg=self.card_bg)
-        tk.Label(frame, text=label_text, font=("Helvetica", 11), bg=self.card_bg, fg=self.fg).pack(side=tk.LEFT)
-        ttk.Combobox(frame, textvariable=variable, values=options, state="readonly", width=18).pack(side=tk.RIGHT)
-        frame.pack(pady=4)
+    def _pack_select(self, label_text: str, variable: tk.StringVar, options: list[str], parent) -> None:
+        frame = ctk.CTkFrame(parent, fg_color="transparent")
+        ctk.CTkLabel(frame, text=label_text).pack(side="left")
+        
+        def menu_callback(choice):
+            variable.set(choice)
+            
+        opt = ctk.CTkOptionMenu(frame, values=options, command=menu_callback, width=130, corner_radius=6)
+        opt.set(variable.get())
+        opt.pack(side="right")
+        frame.pack(fill="x", pady=5)
 
-    def _pack_template(self, item: dict, assets_dir, parent: tk.Widget) -> None:
-        frame = tk.Frame(parent, bg=self.card_bg, pady=5)
+    def _pack_template(self, item: dict, assets_dir, parent) -> None:
+        frame = ctk.CTkFrame(parent, fg_color="transparent")
         image_path = assets_dir / item["path"] if assets_dir is not None else None
-        preview = None
+        
         if image_path is not None and image_path.exists():
-            image = Image.open(image_path).resize((42, 42))
-            preview = ImageTk.PhotoImage(image)
-            self.loaded_images.append(preview)
+            my_image = ctk.CTkImage(light_image=Image.open(image_path), dark_image=Image.open(image_path), size=(42, 42))
+            img_label = ctk.CTkLabel(frame, image=my_image, text="")
+            img_label.image_ref = my_image # keep strong ref
+            img_label.pack(side="right")
+            color = "white"
+            name = item["name"]
+        else:
+            color = "#ff8a80"
+            name = item["name"] + " [missing]"
 
-        text = f"{item['name']}"
-        label_text = text if preview is not None else f"{text} [missing]"
-        label_color = self.fg if preview is not None else "#ff8a80"
-        text_frame = tk.Frame(frame, bg=self.card_bg)
-        tk.Label(text_frame, text=label_text, font=("Helvetica", 10, "bold"), bg=self.card_bg, fg=label_color).pack(anchor="w")
-        tk.Label(text_frame, text=item["path"], font=("Helvetica", 9), bg=self.card_bg, fg=self.muted_fg).pack(anchor="w")
-        text_frame.pack(side=tk.LEFT, fill="x", expand=True)
-        if preview is not None:
-            tk.Label(frame, image=preview, bg=self.accent).pack(side=tk.RIGHT)
-        frame.pack(fill="x")
+        text_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        ctk.CTkLabel(text_frame, text=name, font=ctk.CTkFont(weight="bold", size=12), text_color=color).pack(anchor="w")
+        ctk.CTkLabel(text_frame, text=item["path"], font=ctk.CTkFont(size=11), text_color="gray").pack(anchor="w")
+        text_frame.pack(side="left", fill="x", expand=True)
 
-    def _on_title_change(self, _event=None) -> None:
-        self.title_name = self.title_combo.get().strip()
+        frame.pack(fill="x", pady=(0, 10))
+
+    def _on_title_change_menu(self, choice: str) -> None:
+        if choice and choice != "Nenhuma janela encontrada":
+            self.title_name = choice.strip()
+        else:
+            self.title_name = ""
         self._sync_start_button_state()
 
     def _sync_start_button_state(self) -> None:
         is_enabled = bool(self.title_name) and not self.is_running
-        self.start_button.config(state=tk.NORMAL if is_enabled else tk.DISABLED)
-        self.start_button.config(
-            bg=self.button_bg if is_enabled else self.button_disabled_bg,
-            fg=self.button_fg if is_enabled else self.button_disabled_fg,
-            activebackground=self.button_bg if is_enabled else self.button_disabled_bg,
-            activeforeground=self.button_fg if is_enabled else self.button_disabled_fg,
-            cursor="hand2" if is_enabled else "arrow",
-        )
+        self.start_button.configure(state="normal" if is_enabled else "disabled")
+        if self.is_running:
+            self.start_button.configure(text="Rodando... (ESC p/ parar)", fg_color="#3b3b3b", hover_color="#3b3b3b")
+        else:
+            self.start_button.configure(text="Iniciar Automação", fg_color="#2b6ef2", hover_color="#1f56bf")
 
     def start_automation(self) -> None:
         if not self.title_name:
@@ -317,12 +214,12 @@ class AutomationApp:
                 },
             },
         }
-        loop_limit = int(self.loop_limit_var.get()) if self.loop_limit_var.get().strip() else None
+        raw_limit = self.loop_limit_var.get().strip()
+        loop_limit = int(raw_limit) if raw_limit and raw_limit.isdigit() else None
 
         self.is_running = True
         self._sync_start_button_state()
-        self.status_label.config(text="Rodando")
-        self.root.title("Press ESC to stop")
+        self.status_label.configure(text="Rodando...")
 
         self.engine = AutomationEngine(
             config=runtime_config,
@@ -340,23 +237,22 @@ class AutomationApp:
         self.engine.start()
 
     def _on_step(self, step_name: str) -> None:
-        self.root.after(0, lambda: self.status_label.config(text=f"Etapa: {step_name}"))
+        self.root.after(0, lambda: self.status_label.configure(text=f"Etapa: {step_name}"))
 
     def _on_match(self, template_name: str) -> None:
-        self.root.after(0, lambda: self.last_match_label.config(text=f"Ultimo template: {template_name}"))
+        self.root.after(0, lambda: self.last_match_label.configure(text=f"Último template: {template_name}"))
 
     def _on_loop(self, loop_count: int) -> None:
-        self.root.after(0, lambda: self.root.title(f"Press ESC to stop | Loop {loop_count}"))
+        pass
 
     def _on_action(self, action: str) -> None:
-        self.root.after(0, lambda: self.last_action_label.config(text=f"Ultima acao: {action}"))
+        self.root.after(0, lambda: self.last_action_label.configure(text=f"Ação: {action}"))
 
     def _on_stop(self, error, stats) -> None:
         def finish():
             self.is_running = False
-            self.root.title(self.config["app"].get("title", "Evento 2026 Automator"))
             self._sync_start_button_state()
-            self.status_label.config(text=f"Parado | Loops: {stats.loop_count}")
+            self.status_label.configure(text=f"Parado | Loops: {stats.loop_count}")
             if error:
                 messagebox.showerror("Automation stopped", str(error))
 
