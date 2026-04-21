@@ -42,6 +42,13 @@
       "max_scale": 0.95
     },
     {
+      "name": "andar_2_na_lista",
+      "path": "andar_2_na_lista.png",
+      "threshold": 0.7,
+      "min_scale": 0.65,
+      "max_scale": 0.95
+    },
+    {
       "name": "andar_2_iniciar",
       "path": "andar_2_iniciar.jpg",
       "threshold": 0.8,
@@ -83,7 +90,7 @@
         "wait_for": [
           "andar_2_selecionado"
         ],
-        "timeout_seconds": 20
+        "timeout_seconds": 30
       },
       {
         "name": "clicar_de_novo",
@@ -173,22 +180,29 @@
           {
             "type": "drag",
             "start_x_ratio": 0.662,
-            "start_y_ratio": 0.560,
+            "start_y_ratio": 0.350,
             "end_x_ratio": 0.662,
-            "end_y_ratio": 0.885,
-            "hold_before": 0.12,
-            "hold_after_move": 0.12,
-            "duration": 0.35,
-            "delay_after": 0.45,
-            "repeat": 18
-          },
-          {
-            "type": "click",
-            "x_ratio": 0.650,
-            "y_ratio": 0.595,
-            "delay_after": 1.5
+            "end_y_ratio": 0.920,
+            "interpolate": true,
+            "hold_before": 0.08,
+            "hold_after_move": 0.08,
+            "duration": 0.25,
+            "delay_after": 0.25,
+            "repeat": 10
           }
         ]
+      },
+      {
+        "name": "selecionar_andar_2",
+        "scan_and_click": {
+          "verify_template": "andar_2_selecionado",
+          "scan_x_ratio": 0.65,
+          "scan_y_start": 0.46,
+          "scan_y_step": 0.10,
+          "scan_y_end": 0.76,
+          "click_delay": 0.5,
+          "timeout_seconds": 15
+        }
       }
     ]
   }

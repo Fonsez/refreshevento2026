@@ -89,7 +89,8 @@ Não. O app usa APIs do Windows para mover o mouse e detectar janelas.
 **Posso mudar o andar ou o modo?**  
 O bot está configurado para o Andar 2 do Modo Desafio. Para adaptar, edite o `app_config.json` e troque as imagens em `assets/img/`.
 
-**Que time devo usarrrrr?**  
+**Que time devo usarrrrr?**
+
 ![alt text](image.png)
 
 Lorina - ![alt text](image-6.png)

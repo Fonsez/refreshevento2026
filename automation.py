@@ -289,6 +289,7 @@ class AutomationEngine:
         hold_after_move: float,
         duration: float,
         button: str,
+        interpolate: bool = True,
     ) -> None:
         if button != "left":
             raise ValueError("Only left button drag is supported.")
@@ -315,9 +316,20 @@ class AutomationEngine:
             time.sleep(hold_before)
             user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
             time.sleep(hold_before)
-            self._move_cursor_to(end_x, end_y)
-            if duration > 0:
-                time.sleep(duration)
+            if interpolate:
+                steps = max(int(duration / 0.016), 8)
+                step_delay = duration / steps if duration > 0 else 0
+                for i in range(1, steps + 1):
+                    t = i / steps
+                    ix = start_x + (end_x - start_x) * t
+                    iy = start_y + (end_y - start_y) * t
+                    self._move_cursor_to(ix, iy)
+                    if step_delay > 0:
+                        time.sleep(step_delay)
+            else:
+                self._move_cursor_to(end_x, end_y)
+                if duration > 0:
+                    time.sleep(duration)
             time.sleep(hold_after_move)
             user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
             return
@@ -326,9 +338,20 @@ class AutomationEngine:
         time.sleep(hold_before)
         user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
         time.sleep(hold_before)
-        user32.SetCursorPos(int(end_x), int(end_y))
-        if duration > 0:
-            time.sleep(duration)
+        if interpolate:
+            steps = max(int(duration / 0.016), 8)
+            step_delay = duration / steps if duration > 0 else 0
+            for i in range(1, steps + 1):
+                t = i / steps
+                ix = start_x + (end_x - start_x) * t
+                iy = start_y + (end_y - start_y) * t
+                user32.SetCursorPos(int(ix), int(iy))
+                if step_delay > 0:
+                    time.sleep(step_delay)
+        else:
+            user32.SetCursorPos(int(end_x), int(end_y))
+            if duration > 0:
+                time.sleep(duration)
         time.sleep(hold_after_move)
         user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
@@ -338,16 +361,65 @@ class AutomationEngine:
             raw_timeout = step.get("timeout_seconds", 120)
             timeout_seconds = None if raw_timeout is None else float(raw_timeout)
             confirm_matches = int(step.get("confirm_matches", 1))
+            search_region = step.get("search_region")
             matched_name = self._wait_for_templates(
                 template_names=wait_for,
                 timeout_seconds=timeout_seconds,
                 poll_interval=float(step.get("poll_interval", self.default_poll)),
                 confirm_matches=confirm_matches,
+                search_region=search_region,
             )
             if self.ui_hooks.get("on_match"):
                 self.ui_hooks["on_match"](matched_name)
 
+            if step.get("click_on_match") and self._last_match_center is not None:
+                cx, cy = self._last_match_center
+                abs_x = self.window.left + cx
+                abs_y = self.window.top + cy
+                self._click_at(abs_x, abs_y)
+                time.sleep(float(step.get("click_delay_after", 1.0)))
+
+        scan_config = step.get("scan_and_click")
+        if scan_config:
+            self._scan_and_click(scan_config)
+
         self._run_actions(step.get("actions", []))
+
+    def _scan_and_click(self, config: dict) -> None:
+        verify_name = config["verify_template"]
+        verify_template = self.templates[verify_name]
+        scan_x = float(config.get("scan_x_ratio", 0.50))
+        y_start = float(config.get("scan_y_start", 0.30))
+        y_step = float(config.get("scan_y_step", 0.09))
+        y_end = float(config.get("scan_y_end", 0.80))
+        click_delay = float(config.get("click_delay", 0.8))
+        timeout = float(config.get("timeout_seconds", 20))
+
+        started = time.time()
+        y = y_start
+        while self.loop_active and y <= y_end:
+            if (time.time() - started) > timeout:
+                break
+
+            x, click_y = self._resolve_xy(scan_x, y)
+            self._click_at(x, click_y)
+            if self.ui_hooks.get("on_action"):
+                self.ui_hooks["on_action"](f"scan click y={y:.2f}")
+            time.sleep(click_delay)
+
+            screenshot = self.take_screenshot()
+            if screenshot is not None:
+                screenshot_gray = cv2.cvtColor(screenshot, cv2.COLOR_RGB2GRAY)
+                if self._find_template(screenshot_gray, verify_template) is not None:
+                    if self.ui_hooks.get("on_match"):
+                        self.ui_hooks["on_match"](verify_name)
+                    return
+
+            y += y_step
+
+        raise TimeoutError(
+            f"scan_and_click: could not verify {verify_name} after scanning"
+        )
 
     def _wait_for_templates(
         self,
@@ -355,11 +427,13 @@ class AutomationEngine:
         timeout_seconds: float | None,
         poll_interval: float,
         confirm_matches: int = 1,
+        search_region: dict | None = None,
     ) -> str:
         started = time.time()
         last_screenshot = None
         consecutive_hits = 0
         last_match_name = None
+        self._last_match_center = None
         while self.loop_active:
             if timeout_seconds is not None and timeout_seconds > 0:
                 if (time.time() - started) > timeout_seconds:
@@ -371,11 +445,27 @@ class AutomationEngine:
             last_screenshot = screenshot
             screenshot_gray = cv2.cvtColor(screenshot, cv2.COLOR_RGB2GRAY)
 
+            region_offset_x = 0
+            region_offset_y = 0
+            search_area = screenshot_gray
+            if search_region:
+                sh, sw = screenshot_gray.shape[:2]
+                x1 = int(sw * search_region.get("x_min", 0))
+                x2 = int(sw * search_region.get("x_max", 1))
+                y1 = int(sh * search_region.get("y_min", 0))
+                y2 = int(sh * search_region.get("y_max", 1))
+                search_area = screenshot_gray[y1:y2, x1:x2]
+                region_offset_x = x1
+                region_offset_y = y1
+
             current_match_name = None
+            current_match_result = None
             for name in template_names:
                 template = self.templates[name]
-                if self._find_template(screenshot_gray, template) is not None:
+                match_result = self._find_template(search_area, template)
+                if match_result is not None:
                     current_match_name = name
+                    current_match_result = match_result
                     break
 
             if current_match_name is not None:
@@ -386,6 +476,12 @@ class AutomationEngine:
                     consecutive_hits = 1
 
                 if consecutive_hits >= max(confirm_matches, 1):
+                    if current_match_result is not None:
+                        mx, my, mw, mh = current_match_result
+                        self._last_match_center = (
+                            mx + mw // 2 + region_offset_x,
+                            my + mh // 2 + region_offset_y,
+                        )
                     return current_match_name
             else:
                 consecutive_hits = 0
@@ -447,6 +543,7 @@ class AutomationEngine:
                 hold_after_move=float(action.get("hold_after_move", 0.05)),
                 duration=float(action.get("duration", 0.05)),
                 button=action.get("button", "left"),
+                interpolate=action.get("interpolate", True),
             )
             time.sleep(float(action.get("delay_after", self.screenshot_sleep)))
             return
@@ -474,6 +571,7 @@ class AutomationEngine:
     def _find_template(self, screenshot_gray, template: ScreenTemplate):
         best_score = -1.0
         best_loc = None
+        best_size = None
 
         scale = template.min_scale
         while scale <= template.max_scale + 1e-9:
@@ -493,10 +591,11 @@ class AutomationEngine:
             if max_value > best_score:
                 best_score = float(max_value)
                 best_loc = max_loc
+                best_size = (width, height)
             scale += template.scale_step
 
         if best_score >= template.threshold and best_loc is not None:
-            return int(best_loc[0]), int(best_loc[1])
+            return int(best_loc[0]), int(best_loc[1]), best_size[0], best_size[1]
         return None
 
     def _finish(self, error: Exception | None = None) -> None:
